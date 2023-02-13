@@ -1,4 +1,5 @@
 ﻿using Chess.MathNS;
+using Chess.MoveNS;
 using Chess.PiecesNS;
 using Chess.PiecesNS.Base;
 
@@ -45,18 +46,39 @@ namespace Chess.BoardNS
 		public Board GetNextMoveBoard(Piece piece, Cell target)
 		{
 			Board nextMoveBoard = new Board(this);
-			nextMoveBoard.Cells[piece.Position.X, piece.Position.Y].RemovePiece();
-			nextMoveBoard.Cells[target.Position.X, target.Position.Y] = target.Clone();
+			Cell movedCell = nextMoveBoard.Cells[piece.Position.X, piece.Position.Y];
+			Cell targetCell = nextMoveBoard.Cells[target.Position.X, target.Position.Y];
+			if (targetCell.Piece != null)
+			{
+				nextMoveBoard.Pieces.Remove(targetCell.Piece);
+				targetCell.RemovePiece();
+			}
+			if (movedCell.Piece != null)
+			{
+				Piece newPiece = targetCell.CreatePiece(movedCell.Piece.Type, movedCell.Piece.Team);
+				nextMoveBoard.Pieces.Add(movedCell.Piece);
+				if (newPiece is King newKing)
+				{
+					if (newKing.Team == Team.White)
+						nextMoveBoard._whiteKing = newKing;
+					else nextMoveBoard._blackKing = newKing;
+				}
+
+				nextMoveBoard.Pieces.Remove(movedCell.Piece);
+				movedCell.RemovePiece();
+			}
+
 			return nextMoveBoard;
 		}
 		public bool CanMovePiece(Piece piece, Cell target)
 		{
 			if (CurrentMoveTeam != piece.Team) return false;
 
+			if (!piece.CanMoveToCell(this, target)) return false;
 			Board nextMoveBoard = GetNextMoveBoard(piece, target);
 			if (IsKingUnderAttack(nextMoveBoard, piece.Team)) return false;
 
-			return piece.CanMoveToCell(this, target);
+			return true;
 		}
 		public void MovePiece(Piece piece, Cell target)
 		{
@@ -69,13 +91,13 @@ namespace Chess.BoardNS
 		}
 		public bool IsKingUnderAttack(Board board, Team team)
 		{
-			King king = team == Team.White ? _whiteKing : _blackKing;
+			King king = team == Team.White ? board._whiteKing : board._blackKing;
 
-			for (int i = 0; i < Pieces.Count; i++)
+			for (int i = 0; i < board.Pieces.Count; i++)
 			{
-				Piece piece = Pieces[i];
-				if (piece is King) continue;
-				if (piece.Team == team) continue;
+				Piece piece = board.Pieces[i];
+				//if (piece is King) continue;
+				if (piece.Team == king.Team) continue;
 
 				if (piece.CanMoveToCell(board, king.Cell)) return true;
 			}
@@ -91,7 +113,18 @@ namespace Chess.BoardNS
 		public IEnumerable<Cell> GetAllowedPieceMoves(Piece piece)
 		{
 			if (piece.Team != CurrentMoveTeam) return Enumerable.Empty<Cell>();
-			return piece.GetAllowedCells(this);
+			IEnumerable<Move> moves = piece.GetAllowedMoves(this);
+			moves = moves.Where(x =>
+			{
+				Vector2Int targetPiecePosition = piece.Position + x.Offset;
+				Cell targetCell = Cells[targetPiecePosition.X, targetPiecePosition.Y];
+				return CanMovePiece(piece, targetCell);
+			});
+			return moves.Select(x =>
+			{
+				Vector2Int targetPiecePosition = piece.Position + x.Offset;
+				return Cells[targetPiecePosition.X, targetPiecePosition.Y];
+			});
 		}
 		public void InitPieces()
 		{
@@ -148,12 +181,14 @@ namespace Chess.BoardNS
 					if (_cells[x, y].Piece != null)
 					{
 						Pieces.Add(_cells[x, y].Piece!);
+						if (_cells[x, y].Piece is King)
+						{
+							if (_cells[x, y].Piece!.Team == Team.White) _whiteKing = (King)_cells[x, y].Piece!;
+							else _blackKing = (King)_cells[x, y].Piece!;
+						}
 					}
 				}
 			}
-
-			_whiteKing = board._whiteKing;
-			_blackKing = board._blackKing;
 		}
 		public void SelectCell(Cell cell) => SelectedCell = cell;
 		public void DeselectCell() => SelectedCell = null;

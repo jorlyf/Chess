@@ -46,6 +46,10 @@ namespace Chess.PiecesNS.Base
 				return board.Cells[targetPosition.X, targetPosition.Y];
 			});
 		}
+		public IEnumerable<Move> GetAllowedMoves(Board board)
+		{
+			return Movement.GetAvailableMoves(board);
+		}
 
 		public void SetCell(Cell cell)
 		{

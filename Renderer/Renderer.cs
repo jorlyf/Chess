@@ -17,7 +17,7 @@ namespace Chess.RendererNS
 
 		private static Color _whiteCellColor = new Color(240, 217, 181);
 		private static Color _blackCellColor = new Color(181, 136, 99);
-		private static Color _selectedCellColor = new Color(0, 139, 139);
+		private static Color _selectedCellColor = new Color(0, 139, 139, 128);
 
 
 		public Renderer(RenderWindow window, Board board)
@@ -87,14 +87,15 @@ namespace Chess.RendererNS
 			if (cell.Piece == null) return;
 
 			IEnumerable<Cell> allowedMoves = _board.GetAllowedPieceMoves(cell.Piece);
+			Cell[] allowedMovesArray = allowedMoves.ToArray();
 			radius = (CellSize - 25) / 4;
-			for (int i = 0; i < allowedMoves.Count(); i++)
+			for (int i = 0; i < allowedMovesArray.Length; i++)
 			{
-				Cell allowedCell = allowedMoves.ElementAt(i);
+				Cell allowedCell = allowedMovesArray[i];
 				CircleShape moveShape = new CircleShape(radius);
 				moveShape.FillColor = Color.Transparent;
 				moveShape.OutlineThickness = 2.0f;
-				moveShape.OutlineColor = Color.Red;
+				moveShape.OutlineColor = new Color(255, 0, 0, 128);
 				Vector2f pos = new Vector2f(allowedCell.Position.X * CellSize, (Board.CELL_COUNT - 1 - allowedCell.Position.Y) * CellSize);
 				pos += new Vector2f(CellSize / 2, CellSize / 2);
 				moveShape.Origin = new Vector2f(radius, radius);
