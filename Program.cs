@@ -21,7 +21,7 @@ board.InitPieces();
 window.Closed += (obj, e) => window.Close();
 window.MouseButtonReleased += (obj, e) =>
 {
-	if (e.Button == Mouse.Button.Left)
+	if (e.Button == Mouse.Button.Left && !board.IsGameEnded)
 	{
 		Vector2Int mousePos = renderer.GetActualMousePosition();
 		if (mousePos.X >= Renderer.CellSize * Board.CELL_COUNT || mousePos.Y >= Renderer.CellSize * Board.CELL_COUNT) return;

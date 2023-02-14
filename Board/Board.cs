@@ -19,6 +19,8 @@ namespace Chess.BoardNS
 
 		public Team CurrentMoveTeam { get; private set; }
 
+		public bool IsGameEnded { get; private set; } = false;
+
 		public Board()
 		{
 			_cells = new Cell[CELL_COUNT, CELL_COUNT];
@@ -82,12 +84,41 @@ namespace Chess.BoardNS
 		}
 		public void MovePiece(Piece piece, Cell target)
 		{
+			Vector2Int offset = target.Position - piece.Position;
+
+			Team moveTeamAfterThis = CurrentMoveTeam == Team.White ? Team.Black : Team.White;
+
 			piece.Cell.RemovePiece();
 			piece.SetCell(target);
 			target.SetPiece(piece);
 			piece.Moved = true;
 
-			CurrentMoveTeam = CurrentMoveTeam == Team.White ? Team.Black : Team.White;
+			if (piece is King && Math.Abs(offset.X) == 2) // castling
+			{
+				Vector2Int rookPosition = target.Position + (offset.X > 0 ? new Vector2Int(1, 0) : new Vector2Int(-2, 0));
+				Cell rookCell = Cells[rookPosition.X, rookPosition.Y];
+				Piece? rook = rookCell.Piece;
+				if (rook == null) throw new Exception("MovePiece castling. Rook is null.");
+				rookCell.RemovePiece();
+				rook.Moved = true;
+
+				Vector2Int newRookPosition = target.Position + (offset.X > 0 ? new Vector2Int(-1, 0) : new Vector2Int(1, 0));
+				Cell newRookCell = Cells[newRookPosition.X, newRookPosition.Y];
+				newRookCell.SetPiece(rook);
+				rook.SetCell(newRookCell);
+			}
+
+			// checkmate checking
+			if (IsKingUnderAttack(this, moveTeamAfterThis))
+			{
+				if (IsCheckMate(this, moveTeamAfterThis))
+				{
+					Console.WriteLine($"GG! {CurrentMoveTeam} win.");
+					IsGameEnded = true;
+				}
+			}
+
+			CurrentMoveTeam = moveTeamAfterThis;
 		}
 		public bool IsKingUnderAttack(Board board, Team team)
 		{
@@ -96,10 +127,21 @@ namespace Chess.BoardNS
 			for (int i = 0; i < board.Pieces.Count; i++)
 			{
 				Piece piece = board.Pieces[i];
-				//if (piece is King) continue;
 				if (piece.Team == king.Team) continue;
 
 				if (piece.CanMoveToCell(board, king.Cell)) return true;
+			}
+
+			return false;
+		}
+		public bool IsCellUnderAttack(Board board, Cell cell, Team team)
+		{
+			for (int i = 0; i < board.Pieces.Count; i++)
+			{
+				Piece piece = board.Pieces[i];
+				if (piece.Team == team) continue;
+
+				if (piece.CanMoveToCell(board, cell)) return true;
 			}
 
 			return false;
@@ -108,7 +150,24 @@ namespace Chess.BoardNS
 		{
 			King king = team == Team.White ? _whiteKing : _blackKing;
 
-			throw new NotImplementedException();
+			IEnumerable<Cell> kingMoves = GetAllowedPieceMoves(king);
+			if (kingMoves.Count() == 0)
+			{
+				int count = 0;
+				for (int i = 0; i < board.Pieces.Count; i++)
+				{
+					Piece piece = board.Pieces[i];
+					if (piece.Team != team) continue;
+					IEnumerable<Cell> pieceMoves = GetAllowedPieceMoves(piece);
+					count += pieceMoves.Count();
+				}
+				if (count == 0)
+				{
+					return true;
+				}
+			}
+
+			return false;
 		}
 		public IEnumerable<Cell> GetAllowedPieceMoves(Piece piece)
 		{
@@ -216,7 +275,7 @@ namespace Chess.BoardNS
 				Vector2Int pos;
 				for (int i = 1; i < Math.Abs(offset.X); i++)
 				{
-					pos = startCell.Position + new Vector2Int(offset.Y > 0 ? i : -i, 0);
+					pos = startCell.Position + new Vector2Int(offset.X > 0 ? i : -i, 0);
 					if (!IsCellPositionValid(pos)) continue;
 					Cell cellAtPosition = Cells[pos.X, pos.Y];
 					Piece? pieceAtPosition = cellAtPosition.Piece;
